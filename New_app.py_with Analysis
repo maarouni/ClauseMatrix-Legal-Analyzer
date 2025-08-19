@@ -1,0 +1,92 @@
+import streamlit as st
+import os
+import re
+import tempfile
+import openai
+import fitz  # PyMuPDF
+import pandas as pd
+from docx import Document
+
+# Set up Streamlit page
+st.set_page_config(page_title="ClauseMatrix: Browser-based Legal Analyzer")
+st.title("📄 ClauseMatrix: Browser-based Legal Analyzer")
+
+# Helper functions
+def extract_text_from_pdf(file):
+    text = ""
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        tmp_file.write(file.read())
+        tmp_file_path = tmp_file.name
+    doc = fitz.open(tmp_file_path)
+    for page in doc:
+        text += page.get_text("text")
+    doc.close()
+    os.remove(tmp_file_path)
+    return text
+
+def extract_text_from_docx(file):
+    text = ""
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp_file:
+        tmp_file.write(file.read())
+        tmp_file_path = tmp_file.name
+    doc = Document(tmp_file_path)
+    for para in doc.paragraphs:
+        text += para.text + "\n"
+    os.remove(tmp_file_path)
+    return text
+
+def chunk_text(text, max_tokens=2000):
+    sentences = re.split(r'(?<=[.!?]) +', text)
+    chunks, current_chunk, current_length = [], [], 0
+    for sentence in sentences:
+        tokens = len(sentence.split())
+        if current_length + tokens > max_tokens:
+            chunks.append(" ".join(current_chunk))
+            current_chunk, current_length = [sentence], tokens
+        else:
+            current_chunk.append(sentence)
+            current_length += tokens
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+    return chunks
+
+def analyze_text(text, model="gpt-4o-mini"):
+    chunks = chunk_text(text)
+    analysis_output = []
+    for chunk in chunks:
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a legal document analyzer."},
+                {"role": "user", "content": f"Analyze this legal text and provide key points:\n{chunk}"}
+            ]
+        )
+        analysis_output.append(response["choices"][0]["message"]["content"].strip())
+    return "\n\n".join(analysis_output)
+
+# File upload and mode selection
+mode = st.radio(
+    "What would you like to do?",
+    ["🔍 Analyze a Single Document", "📊 Analyze and Compare Multiple Documents"]
+)
+
+uploaded_files = st.file_uploader("Upload PDF or DOCX files", type=["pdf", "docx"], accept_multiple_files=(mode=="📊 Analyze and Compare Multiple Documents"))
+
+if st.button("Start Analysis") and uploaded_files:
+    docs_texts, results = [], {}
+    for uploaded_file in uploaded_files:
+        if uploaded_file.type == "application/pdf":
+            text = extract_text_from_pdf(uploaded_file)
+        else:
+            text = extract_text_from_docx(uploaded_file)
+        analysis = analyze_text(text)
+        results[uploaded_file.name] = analysis
+        docs_texts.append(text)
+
+    if mode == "🔍 Analyze a Single Document":
+        st.subheader("Analysis Result")
+        st.write(results[uploaded_files[0].name])
+    else:
+        st.subheader("Comparison Table")
+        df = pd.DataFrame.from_dict(results, orient="index", columns=["Analysis"])
+        st.table(df)

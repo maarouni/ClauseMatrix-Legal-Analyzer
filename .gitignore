@@ -1,0 +1,50 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+py311env/
+
+# --- Streamlit cache ---
+.streamlit/
+.stcache/
+
+# --- Environment & secrets ---
+.env
+.env.*
+*.save
+
+# --- Logs ---
+*.log
+*.out
+*.err
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+
+# --- Temporary & backup files ---
+*~
+*.tmp
+*.bak
+*.swp
+*.swo
+~$*
+
+# --- Documents (keep repo code-only) ---
+*.pdf
+*.docx
+*.rtf
+*.odt
+*.pptx
+*.xlsx
+
+# --- Test files / artifacts ---
+Test_Files/
+corrupt.pdf

@@ -2,47 +2,55 @@ import os
 import re
 import pandas as pd
 import streamlit as st
+
+# Must be the first Streamlit call
+st.set_page_config(
+    page_title="ClauseMatrix: Browser-based Legal Analyzer",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# ----------------------------
+# HARD PASSWORD GATE (always first)
+# ----------------------------
+def require_password() -> None:
+    """
+    Always show a password gate before running the app.
+    - If STREAMLIT_PASSWORD exists in secrets or env, enforce it.
+    - Otherwise, enforce "soft gate": require a non-empty password (>=5 chars).
+    """
+    PASSWORD_SECRET = st.secrets.get("STREAMLIT_PASSWORD") or os.getenv("STREAMLIT_PASSWORD")
+
+    st.markdown("## 🔒 Access Control")
+    pwd = st.text_input("Enter access password:", type="password", key="cm_pw")
+
+    # Always show the gate UI and stop until the user enters something
+    if pwd == "":
+        st.stop()
+
+    # Enforce real secret if present
+    if PASSWORD_SECRET:
+        if pwd != PASSWORD_SECRET:
+            st.error("❌ Incorrect password")
+            st.stop()
+    else:
+        # No secret configured — require at least 5 chars to proceed
+        st.warning("⚠️ No STREAMLIT_PASSWORD set. Running with a soft gate.")
+        if len(pwd) < 5:
+            st.error("Please enter at least 5 characters to proceed.")
+            st.stop()
+
+# Gate must be called before any other UI
+require_password()
+
+# ----------------------------
+# The rest of the app is wrapped in a function
+# and only runs AFTER the gate passes.
+# ----------------------------
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from openai import OpenAI
 
-# ----------------------------
-# Load secrets / API key
-# ----------------------------
-load_dotenv()
-OPENAI_KEY = None
-try:
-    OPENAI_KEY = st.secrets["OPENAI_API_KEY"]
-except Exception:
-    OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-
-if not OPENAI_KEY:
-    st.warning("⚠️ OPENAI_API_KEY not found in st.secrets or environment variables.")
-client = OpenAI(api_key=OPENAI_KEY)
-
-# ----------------------------
-# Streamlit page setup
-# ----------------------------
-st.set_page_config(page_title="ClauseMatrix: Browser-based Legal Analyzer")
-st.title("📄 ClauseMatrix: Browser-based Legal Analyzer")
-
-# ----------------------------
-# File uploader & mode
-# ----------------------------
-uploaded_files = st.file_uploader(
-    "Upload one or more PDF files",
-    type=["pdf"],
-    accept_multiple_files=True
-)
-
-mode = st.radio(
-    "What would you like to do?",
-    ["🔍 Analyze a Single Document", "📊 Analyze and Compare Multiple Documents"]
-)
-
-# ----------------------------
-# Helpers
-# ----------------------------
 def extract_text_from_pdf(uploaded_file):
     """
     Read text from a single PDF (no pre-reads; keep UploadedFile intact).
@@ -56,7 +64,14 @@ def extract_text_from_pdf(uploaded_file):
 def analyze_text_full(text: str, instruction: str) -> str:
     """
     Single-pass analysis using OpenAI v1 Chat Completions API (no chunking).
+    The client is initialized lazily here (after the password gate).
     """
+    load_dotenv()
+    OPENAI_KEY = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not OPENAI_KEY:
+        raise RuntimeError("OPENAI_API_KEY not found in st.secrets or environment variables.")
+    client = OpenAI(api_key=OPENAI_KEY)
+
     resp = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -103,84 +118,84 @@ def process_multiple_documents(files) -> dict:
             results[f.name] = analysis_output
     return results
 
-# ----------------------------
-# Main logic
-# ----------------------------
-if uploaded_files:
-    if mode == "🔍 Analyze a Single Document":
-        if len(uploaded_files) != 1:
-            st.warning("Please upload exactly one PDF for single-document analysis.")
-        else:
-            uploaded_file = uploaded_files[0]
-            if uploaded_file.type != "application/pdf":
-                st.error("Please upload a PDF file.")
+def run_app():
+    st.title("📄 ClauseMatrix: Browser-based Legal Analyzer")
+
+    uploaded_files = st.file_uploader(
+        "Upload one or more PDF files",
+        type=["pdf"],
+        accept_multiple_files=True
+    )
+
+    mode = st.radio(
+        "What would you like to do?",
+        ["🔍 Analyze a Single Document", "📊 Analyze and Compare Multiple Documents"]
+    )
+
+    if uploaded_files:
+        if mode == "🔍 Analyze a Single Document":
+            if len(uploaded_files) != 1:
+                st.warning("Please upload exactly one PDF for single-document analysis.")
+            else:
+                uploaded_file = uploaded_files[0]
+                if uploaded_file.type != "application/pdf":
+                    st.error("Please upload a PDF file.")
+                else:
+                    try:
+                        analysis_output = process_single_document(uploaded_file)
+                        st.subheader("Analysis Result")
+                        st.write(analysis_output)
+                    except Exception as e:
+                        st.error(f"❌ Error during analysis:\n\n{e}")
+
+        elif mode == "📊 Analyze and Compare Multiple Documents":
+            if len(uploaded_files) < 2:
+                st.warning("Please upload at least two PDFs for comparison.")
             else:
                 try:
-                    analysis_output = process_single_document(uploaded_file)
-                    st.subheader("Analysis Result")
-                    st.write(analysis_output)
+                    analysis_results = process_multiple_documents(uploaded_files)
+                    st.subheader("Comparison Results")
+
+                    # Section-based comparison table
+                    sections = [
+                        "Parties",
+                        "Effective Date",
+                        "Term",
+                        "Confidential Information",
+                        "Obligations",
+                        "Jurisdiction",
+                        "Risk Flags",
+                    ]
+
+                    def extract_section(analysis_text: str, section_name: str) -> str:
+                        pattern = rf"{section_name}\s*:([\s\S]*?)(?=\n[A-Z][A-Za-z ]+:\s*|$)"
+                        m = re.search(pattern, analysis_text, flags=re.IGNORECASE)
+                        return m.group(1).strip() if m else "Not specified"
+
+                    matrix = {section: {} for section in sections}
+                    for fname, analysis_text in analysis_results.items():
+                        for section in sections:
+                            matrix[section][fname] = extract_section(analysis_text, section)
+
+                    df_matrix = pd.DataFrame(matrix).T
+
+                    if df_matrix.empty or df_matrix.isna().all(axis=None):
+                        df_simple = pd.DataFrame.from_dict(
+                            analysis_results, orient="index", columns=["Analysis"]
+                        )
+                        st.dataframe(df_simple)
+                    else:
+                        st.dataframe(df_matrix)
+
+                    st.subheader("🗂 Per-file Analysis")
+                    for fname, analysis in analysis_results.items():
+                        with st.expander(f"📄 {fname}", expanded=False):
+                            st.write(analysis)
+
                 except Exception as e:
-                    st.error(f"❌ Error during analysis:\n\n{e}")
+                    st.error(f"❌ Error during comparison analysis:\n\n{e}")
+    else:
+        st.info("Upload one or more PDFs to begin.")
 
-    elif mode == "📊 Analyze and Compare Multiple Documents":
-        if len(uploaded_files) < 2:
-            st.warning("Please upload at least two PDFs for comparison.")
-        else:
-            try:
-                analysis_results = process_multiple_documents(uploaded_files)
-                st.subheader("Comparison Results")
-
-                # ================================
-                # Section-based comparison table (side-by-side)
-                # rows = sections, columns = file names
-                # ================================
-                sections = [
-                    "Parties",
-                    "Effective Date",
-                    "Term",
-                    "Confidential Information",
-                    "Obligations",
-                    "Jurisdiction",
-                    "Risk Flags",
-                ]
-
-                def extract_section(summary_text: str, section_name: str) -> str:
-                    """
-                    Extract a section block following the pattern:
-                    <Section Name>:
-                      <content...>
-                    Stops at the next section heading or end of text.
-                    """
-                    pattern = rf"{section_name}\s*:([\s\S]*?)(?=\n[A-Z][A-Za-z ]+:\s*|$)"
-                    m = re.search(pattern, summary_text, flags=re.IGNORECASE)
-                    return m.group(1).strip() if m else "Not specified"
-
-                # Build a matrix: rows = sections, columns = file names
-                matrix = {section: {} for section in sections}
-                file_names = list(analysis_results.keys())
-
-                for fname, analysis_text in analysis_results.items():
-                    for section in sections:
-                        matrix[section][fname] = extract_section(analysis_text, section)
-
-                df_matrix = pd.DataFrame(matrix).T  # rows=sections, cols=file names (side-by-side)
-
-                # If extraction failed badly, fallback to simple view
-                if df_matrix.empty or df_matrix.isna().all(axis=None):
-                    df_simple = pd.DataFrame.from_dict(
-                        analysis_results, orient="index", columns=["Analysis"]
-                    )
-                    st.dataframe(df_simple)
-                else:
-                    st.dataframe(df_matrix)
-
-                # Raw analysis expanders per file (readable view)
-                st.subheader("🗂 Per-file Analysis")
-                for fname, analysis in analysis_results.items():
-                    with st.expander(f"📄 {fname}", expanded=False):
-                        st.write(analysis)
-
-            except Exception as e:
-                st.error(f"❌ Error during comparison analysis:\n\n{e}")
-else:
-    st.info("Upload one or more PDFs to begin.")
+# Run the app (only after gate)
+run_app()

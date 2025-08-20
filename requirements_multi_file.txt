@@ -1,7 +1,0 @@
-Streamlit
-pymupdf
-openai
-python-dotenv
-python-docx
-pandas
-xlsxwriter

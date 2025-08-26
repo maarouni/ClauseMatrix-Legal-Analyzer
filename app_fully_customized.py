@@ -1,42 +1,16 @@
 
 import os
-# --- Sample Questions by Role ---
-sample_questions = {
-    "Appellate Attorney": [
-        "What were the main legal errors raised in the appellant's brief?",
-        "How did the court below interpret the precedent on qualified immunity?",
-        "Is the majority's reasoning aligned with relevant constitutional clauses?",
-        "Does the dissent raise viable counterarguments rooted in case law?",
-        "Summarize how the judgment treats the issue of prosecutorial discretion.",
-    ],
-    "Paralegal": [
-        "What are the key deadlines or procedural steps mentioned in this filing?",
-        "Are there any inconsistencies in witness statements or timelines?",
-        "Does this motion cite relevant statutes or case law correctly?",
-        "What are the possible weaknesses in this pleading?",
-        "What follow-up documents or filings might be needed?",
-    ],
-    "Contract Analyst": [
-        "What are the key obligations of both parties in this contract?",
-        "Are there any hidden penalties, automatic renewal clauses, or cancellation restrictions?",
-        "Which clauses deal with intellectual property ownership and usage rights?",
-        "Is there any language that poses legal risk or ambiguity for our side?",
-        "Can you summarize the dispute resolution and arbitration procedures?",
-    ],
-    "Tenant": [
-        "Does this lease let my landlord raise rent during the lease period?",
-        "What are my rights if the landlord doesn't make repairs?",
-        "Can I sublet my apartment under this agreement?",
-        "Is there an early termination penalty I should be aware of?",
-        "Does this lease comply with California tenant protection laws?",
-    ]
-}
 import streamlit as st
 from PyPDF2 import PdfReader
 from openai import OpenAI, RateLimitError
 from docx import Document
 from openpyxl import Workbook
 import json
+
+# --- Load role-based questions from JSON ---
+json_path = os.path.join(os.path.dirname(__file__), "role_questions.json")
+with open(json_path, "r", encoding="utf-8") as f:
+    role_questions = json.load(f)
 
 # Set page config and app title (shown before password entry)
 st.set_page_config(page_title="ClauseMatrix Legal Analyzer", layout="wide")
@@ -70,8 +44,14 @@ This tool uses AI to assist in document triage. For best results:
 - **Legal First**: You retain full control. Uploads are processed once, then cleared.
 """)
 
-# --- Select Role ---
-role = st.radio("### Select your legal role:", ["Appellate Attorney", "Paralegal", "Contract Analyst", "Tenant"], horizontal=True)
+# ----------------------------
+# Role Selector (horizontal)
+# ----------------------------
+role = st.radio(
+    "### Select your legal role:",
+    ["Appellate Attorney", "Paralegal", "Contract Analyst", "Tenant"],
+    horizontal=True
+)
 
 # --- Upload PDFs ---
 st.markdown("### Please upload a single or multiple legal documents (PDF) for clause analysis", unsafe_allow_html=True)

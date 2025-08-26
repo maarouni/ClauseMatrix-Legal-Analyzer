@@ -1,0 +1,28 @@
+{
+  "Contract Analyst": [
+    "\u2022 What are the key obligations of both parties in this contract?",
+    "\u2022 Are there any hidden penalties, automatic renewal clauses, or cancellation restrictions?",
+    "\u2022 Which clauses deal with intellectual property ownership and usage rights?",
+    "\u2022 Is there any language that poses legal risk or ambiguity for our side?",
+    "\u2022 Can you summarize the dispute resolution and arbitration procedures?"
+  ],
+  "Tenant": [
+    "\u2022 Does this lease let my landlord raise rent during the lease period?",
+    "\u2022 What are my rights if the landlord doesn't make repairs?",
+    "\u2022 Can I sublet my apartment under this agreement?",
+    "\u2022 Is there an early termination penalty I should be aware of?"
+  ],
+  "Appellate Attorney": [
+    "\u2022 What were the main legal errors raised in the appellant's brief?",
+    "\u2022 How did the court below interpret the precedent on qualified immunity?",
+    "\u2022 Is the majority's reasoning aligned with relevant constitutional clauses?",
+    "\u2022 Does the dissent raise viable counterarguments rooted in case law?",
+    "\u2022 Summarize how the judgment treats the issue of prosecutorial discretion."
+  ],
+  "Paralegal": [
+    "\u2022 What should I include in a motion to reconsider a family court order?",
+    "\u2022 Are there procedural errors in how the original custody order was granted?",
+    "\u2022 Can the defendant request cross-examination on emotional state and motives?",
+    "\u2022 What are the best practices for citing lack of evidence in family law motions?"
+  ]
+}

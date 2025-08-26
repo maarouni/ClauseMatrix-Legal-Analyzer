@@ -63,7 +63,7 @@ client = OpenAI()
 # --- Load Role-Specific Sample Questions ---
 @st.cache_data
 def load_sample_questions():
-    with open("role_questions_FIXED33.json", "r") as f:
+    with open("role_questions.json", "r") as f:
         return json.load(f)
 
 role_questions = load_sample_questions()

@@ -7,6 +7,25 @@ from docx import Document
 from openpyxl import Workbook
 import json
 
+from PyPDF2 import PdfReader
+import io
+
+# --- Safe PDF Text Extraction ---
+def safe_extract_text(uploaded_file):
+    """Attempt to extract text from a PDF safely.
+    Returns (text, error_message)."""
+    try:
+        # Ensure we're reading bytes
+        data = uploaded_file.read()
+        uploaded_file.seek(0)  # reset pointer for reuse
+        reader = PdfReader(io.BytesIO(data))
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        return text, None
+    except Exception as e:
+        return None, str(e)
+
 # --- Load role-based questions from JSON ---
 json_path = os.path.join(os.path.dirname(__file__), "role_questions.json")
 with open(json_path, "r", encoding="utf-8") as f:
@@ -99,19 +118,35 @@ def summarize_clause(text, role):
 
 # --- Clause Analysis ---
 results = {}
+skipped = []
 if uploaded_files:
     st.markdown("### 🔍 Analysis in Progress...")
     for file in uploaded_files:
-        text = extract_text_from_pdf(file)
+        text, err = safe_extract_text(file)   # <-- use the safe extractor
+        if err:
+            st.warning(f"⚠️ Skipped {file.name}: {err}")                   # <-- user gets a visible heads-up
+            skipped.append(file.name)
+            continue
+
         if len(text) > 16000:
             chunks = [text[i:i+16000] for i in range(0, len(text), 16000)]
             summary = "\n".join([summarize_clause(chunk, role) for chunk in chunks])
         else:
             summary = summarize_clause(text, role)
+
         results[file.name] = summary
         st.markdown(f"#### 📄 Analysis for `{file.name}`:")
         st.write(summary)
 
+    if skipped:
+        st.info(
+            "The following files were skipped because they weren’t valid PDFs: "
+            + ", ".join(skipped)
+        )
+        st.write(
+            "💡 **Tip:** If one of your PDFs was skipped, try re-downloading the original "
+            "or using 'Print to PDF' from your viewer, then re-uploading it here."
+        )        
     # Export to DOCX and XLSX
     docx_path = os.path.join(os.getcwd(), "Clause_Summary.docx")
     docx = Document()

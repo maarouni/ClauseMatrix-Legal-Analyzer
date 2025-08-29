@@ -49,6 +49,7 @@ if not st.session_state.access_granted:
         st.stop()
 
 # --- Onboarding Header and Confidentiality Notes ---
+# --- Onboarding Text ---
 st.markdown("## Let the AI Guide Begin")
 st.markdown("""
 This tool uses AI to assist in document triage. For best results:
@@ -61,6 +62,10 @@ This tool uses AI to assist in document triage. For best results:
 - **Stateless AI**: No chat history is linked to you or reused.
 - **Auto-Cleanup**: Temporary files, if any, are auto-deleted after analysis.
 - **Legal First**: You retain full control. Uploads are processed once, then cleared.
+- **Secure Processing**: All processing occurs in-memory during the session, with TLS encryption in transit. No data is written to persistent storage.
+- **No Model Training**: Your documents and outputs are **not** used to train any AI models.
+- **Streamlit Cloud Trust**: Our host, Streamlit Community Cloud, uses TLS encryption (in transit and at rest) and is SOC 2 Type 1 compliant.
+- **Enterprise Option**: Enterprise deployment available for firms requiring stronger data isolation. Please get in touch.
 """)
 
 # ----------------------------

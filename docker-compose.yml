@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  clausematrix:
+    build: .
+    container_name: clausematrix_app
+    ports:
+      - "8501:8501"
+    # Load environment variables (e.g., OPENAI_API_KEY, STREAMLIT_PASSWORD)
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stoppe

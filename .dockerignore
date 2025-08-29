@@ -1,0 +1,20 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+
+# Ignore venv
+venv/
+.env
+
+# Ignore test/demo files
+Test_Files/
+Test_Files_Enhanced_Model/
+*.pdf
+*.docx
+*.xlsx
+
+# Ignore OS metadata
+.DS_Store
